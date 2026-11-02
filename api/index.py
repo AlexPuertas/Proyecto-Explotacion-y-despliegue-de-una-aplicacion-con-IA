@@ -69,62 +69,81 @@ def _extraer_preguntas(contenido: str) -> list[str]:
 
 
 async def llamar_proveedor(texto: str, num_preguntas: int) -> list[str]:
-    api_key = os.getenv("AI_API_KEY")
+    api_key = os.getenv("AI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     base_url = os.getenv("AI_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
-    modelo = os.getenv("AI_MODEL", "openai/gpt-4o-mini")
 
     if not api_key:
-        logger.error("AI_API_KEY no configurada")
+        logger.error("AI_API_KEY / OPENROUTER_API_KEY no configurada")
         raise ProviderError("El servicio no está configurado", status_code=500)
 
-    payload = {
-        "model": modelo,
-        "temperature": 0.4,
-        "max_tokens": 600,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Eres un asistente que crea preguntas de repaso en español. "
-                    'Responde SOLO con JSON válido con la forma {"preguntas": ["...", "..."]}, '
-                    "sin texto adicional."
-                ),
-            },
-            {
-                "role": "user",
-                "content": f"Genera {num_preguntas} preguntas de repaso sobre este texto:\n\n{texto}",
-            },
-        ],
-    }
+    # Lista de modelos gratuitos a probar de forma secuencial si uno devuelve 429 o da error
+    modelos_candidatos = [
+        os.getenv("AI_MODEL", "google/gemma-4-26b-a4b-it:free"),
+        "openrouter/free",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "qwen/qwen-2.5-72b-instruct:free"
+    ]
 
-    try:
-        async with httpx.AsyncClient(timeout=TIMEOUT_SEGUNDOS) as client:
-            respuesta = await client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json=payload,
-            )
-    except httpx.TimeoutException:
-        logger.warning("Timeout al llamar al proveedor de IA")
-        raise ProviderError("La IA tardó demasiado en responder", status_code=504)
-    except httpx.HTTPError:
-        logger.warning("Error de red al llamar al proveedor de IA")
-        raise ProviderError("No se pudo contactar con la IA")
+    # Mantiene el orden y elimina duplicados
+    modelos = list(dict.fromkeys(modelos_candidatos))
 
-    if respuesta.status_code != 200:
-        # Solo el código; nunca el cuerpo ni cabeceras (podrían contener datos sensibles)
-        logger.warning("Proveedor de IA respondió %s", respuesta.status_code)
-        raise ProviderError("La IA devolvió un error")
+    for modelo in modelos:
+        payload = {
+            "model": modelo,
+            "temperature": 0.4,
+            "max_tokens": 600,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres un asistente que crea preguntas de repaso en español. "
+                        'Responde SOLO con JSON válido con la forma {"preguntas": ["...", "..."]}, '
+                        "sin texto adicional."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Genera {num_preguntas} preguntas de repaso sobre este texto:\n\n{texto}",
+                },
+            ],
+        }
 
-    try:
-        contenido = respuesta.json()["choices"][0]["message"]["content"]
-    except (ValueError, KeyError, IndexError, TypeError):
-        raise ProviderError("La IA devolvió una respuesta con formato inesperado")
+        try:
+            async with httpx.AsyncClient(timeout=TIMEOUT_SEGUNDOS) as client:
+                respuesta = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json=payload,
+                )
+        except httpx.TimeoutException:
+            logger.warning("Timeout con el modelo %s, intentando el siguiente...", modelo)
+            continue
+        except httpx.HTTPError:
+            logger.warning("Error de red con el modelo %s, intentando el siguiente...", modelo)
+            continue
 
-    preguntas = _extraer_preguntas(contenido)
-    if not preguntas:
-        raise ProviderError("La IA no generó ninguna pregunta")
-    return preguntas
+        if respuesta.status_code == 200:
+            try:
+                contenido = respuesta.json()["choices"][0]["message"]["content"]
+                preguntas = _extraer_preguntas(contenido)
+                if preguntas:
+                    return preguntas
+            except Exception:
+                logger.warning("Respuesta no válida con el modelo %s, probando el siguiente...", modelo)
+                continue
+
+        # Si el modelo responde con 429 u otro error, se imprime en consola y prueba el siguiente
+        print(f"Modelo {modelo} falló con estado {respuesta.status_code}: {respuesta.text}")
+        logger.warning("Modelo %s devolvió %s", modelo, respuesta.status_code)
+
+    # Si ningún modelo disponible logró responder con éxito:
+    raise ProviderError(
+        "Los modelos gratuitos de la IA están temporalmente saturados. Por favor, reintenta en unos segundos.",
+        status_code=503
+    )
 
 
 @app.get("/api/health")
