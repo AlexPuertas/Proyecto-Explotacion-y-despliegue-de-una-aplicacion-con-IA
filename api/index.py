@@ -8,8 +8,13 @@ import logging
 import os
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
+
+# En local, lee las variables del archivo .env de la raíz del proyecto.
+# En producción (Vercel, Docker...) no hay .env y se usan las variables reales del entorno.
+load_dotenv()
 
 logger = logging.getLogger("generador")
 
