@@ -3,17 +3,14 @@
 Miniaplicación de una sola pantalla: pegas un texto y una IA genera preguntas de repaso.
 Proyecto de la **Práctica UD1 · Explotación y despliegue de una aplicación con IA**.
 
-> Estado: aplicación (backend + frontend) con inicio de sesión de Clerk, funcionando en local.
-> Pendiente (fuera del alcance de este README por ahora): Docker, Vercel y AWS.
+> Estado: aplicación (backend + frontend) funcionando en local.
+> Pendiente (fuera del alcance de este README por ahora): Clerk, Docker, Vercel y AWS.
 
 ## Arquitectura
 
 ```mermaid
 flowchart LR
-    N[Navegador<br/>React + TypeScript + Tailwind] -->|inicio de sesión| C[Clerk]
-    C -->|token de sesión| N
-    N -->|POST /api/generar + Bearer token| B[Backend FastAPI]
-    B -->|valida el token con las claves públicas| C
+    N[Navegador<br/>React + TypeScript + Tailwind] -->|POST /api/generar| B[Backend FastAPI]
     B -->|chat/completions + API key| IA[Proveedor de IA]
     IA --> B --> N
 ```
