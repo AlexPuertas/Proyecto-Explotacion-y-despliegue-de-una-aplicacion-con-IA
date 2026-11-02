@@ -17,6 +17,8 @@ flowchart LR
 
 - El **navegador** nunca habla con la IA: solo con nuestro backend.
 - La **clave de la IA** vive solo en el servidor (variable de entorno).
+- **Clerk** gestiona el inicio y cierre de sesión. Nuestra aplicación no guarda usuarios ni contraseñas.
+- El backend **valida el token de sesión** en cada petición a la IA. Sin token válido responde `401`.
 - No hay base de datos ni historial: cada petición es independiente.
 
 ## Estructura del proyecto
@@ -45,7 +47,7 @@ flowchart LR
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | GET | `/api/health` | Devuelve `{"status": "ok"}`. Sirve para comprobar que el servicio vive. |
-| POST | `/api/generar` | Recibe `{"texto": "...", "num_preguntas": 5}` y devuelve `{"preguntas": ["...", ...]}`. |
+| POST | `/api/generar` | **Requiere sesión** (cabecera `Authorization: Bearer <token>`). Recibe `{"texto": "...", "num_preguntas": 5}` y devuelve `{"preguntas": ["...", ...]}`. |
 
 **Validaciones** (error `422` si no se cumplen): texto de 20 a 4000 caracteres y entre 1 y 10 preguntas.
 
@@ -53,7 +55,8 @@ flowchart LR
 
 | Código | Cuándo |
 | --- | --- |
-| 500 | Falta `AI_API_KEY` en el servidor |
+| 401 | Falta el token, está caducado, la firma no es válida o viene de un origen no autorizado |
+| 500 | Falta la clave de la IA o la configuración de Clerk en el servidor |
 | 502 | La IA falla, no responde o devuelve un formato inesperado |
 | 504 | La IA tarda más de 25 segundos |
 
@@ -64,6 +67,42 @@ flowchart LR
 | `AI_API_KEY` | Clave de la API del proveedor de IA | **Secreta** | Backend, en ejecución |
 | `AI_BASE_URL` | URL del proveedor (compatible con el formato OpenAI) | Pública | Backend, en ejecución |
 | `AI_MODEL` | Modelo a utilizar | Pública | Backend, en ejecución |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Clave pública de Clerk (`pk_test_...`) | Pública | Frontend, se incluye al compilar |
+| `CLERK_JWKS_URL` | URL de las claves públicas de Clerk, para validar firmas | Pública | Backend, en ejecución |
+| `CLERK_AUTHORIZED_PARTIES` | Orígenes permitidos, separados por comas | Pública | Backend, en ejecución |
+
+Con este método de validación (claves públicas JWKS) el backend **no necesita la clave secreta de Clerk**
+(`sk_test_...`), así que no hay que configurarla ni guardarla en ningún sitio.
+
+## Configurar Clerk
+
+Usa una instancia de **desarrollo** y cuentas de prueba.
+
+1. En <https://clerk.com> crea una aplicación y activa un método de acceso sencillo (por ejemplo, email).
+2. En el panel, abre **API Keys** y copia la **Publishable key** (`pk_test_...`) en `VITE_CLERK_PUBLISHABLE_KEY`.
+3. En el mismo panel busca el **Frontend API URL** (algo como `https://nombre.clerk.accounts.dev`).
+   Añade `/.well-known/jwks.json` al final y pon el resultado en `CLERK_JWKS_URL`.
+4. En `CLERK_AUTHORIZED_PARTIES` pon el origen desde el que abres la aplicación, sin `/` final:
+   - En local: `http://localhost:5173`
+   - En Codespaces: la dirección del puerto 5173 (`https://...-5173.app.github.dev`).
+   - Varios orígenes: sepáralos con comas.
+5. Reinicia el backend y el frontend para que lean los cambios del `.env`.
+
+### Cómo se valida el token en el backend
+
+`api/index.py` comprueba, con PyJWT, que el token (1) está firmado por nuestra instancia de Clerk,
+(2) no ha caducado, (3) lo ha emitido nuestra instancia (`iss`) y (4) procede de un origen autorizado (`azp`).
+Si falta la configuración, el backend rechaza todas las peticiones en vez de dejarlas pasar.
+Esto no depende de CORS: en desarrollo el frontend y el backend comparten origen gracias al proxy de Vite.
+
+### Comprobación manual del rechazo sin token
+
+```bash
+curl -i -X POST http://localhost:8000/api/generar \
+  -H "Content-Type: application/json" \
+  -d '{"texto": "Texto de prueba con más de veinte caracteres."}'
+# Debe responder: HTTP/1.1 401 Unauthorized
+```
 
 ## Puesta en marcha en local
 
@@ -108,8 +147,10 @@ Desde la raíz del proyecto, con el entorno virtual activado:
 pytest
 ```
 
-Los tests **no llaman a la IA real** (se sustituye por una función falsa). Cubren:
-health, entrada válida, entradas incorrectas (422) y errores del proveedor (502/504).
+Los tests **no llaman a la IA real ni a Clerk** (la IA se sustituye por una función falsa y los
+tokens se firman en el propio test con una clave de prueba). Cubren: health, entrada válida,
+entradas incorrectas (422), errores del proveedor (502/504) y rechazo con 401 de peticiones sin token,
+con token caducado, con firma falsa y con origen no autorizado (en todos ellos la IA no se consume).
 
 ## Decisiones de diseño
 
@@ -117,4 +158,7 @@ health, entrada válida, entradas incorrectas (422) y errores del proveedor (502
 - **Rutas relativas (`/api/...`)**: el frontend no necesita saber dónde está el backend,
   lo que facilita desplegarlo después en otros entornos.
 - **Validación doble**: en el navegador (comodidad del usuario) y en el backend (seguridad).
+- **Autenticación delegada en Clerk**: sin base de datos ni gestión de usuarios propia.
+- **Protección en el backend**: ocultar el formulario sin sesión es solo comodidad; lo que impide
+  gastar la API de IA es la validación del token en FastAPI.
 - **Errores sin detalles internos**: el usuario ve mensajes claros; los detalles solo van al log.

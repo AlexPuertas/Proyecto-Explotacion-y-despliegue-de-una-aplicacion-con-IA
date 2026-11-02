@@ -8,17 +8,23 @@ export interface GenerarResponse {
 
 /**
  * Envía el texto al backend y devuelve las preguntas generadas.
+ * `token` es el token de sesión de Clerk: el backend lo valida y, si no es
+ * válido, responde 401 sin llamar a la IA.
  * Si algo falla lanza un Error con un mensaje legible para el usuario.
  */
 export async function generarPreguntas(
   texto: string,
   numPreguntas: number,
+  token: string,
 ): Promise<string[]> {
   let respuesta: Response;
   try {
     respuesta = await fetch("/api/generar", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, // identifica al usuario ante el backend
+      },
       body: JSON.stringify({ texto, num_preguntas: numPreguntas }),
     });
   } catch {
