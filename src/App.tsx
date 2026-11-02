@@ -1,4 +1,5 @@
 // Única pantalla de la aplicación: cabecera de sesión + formulario + resultado.
+// Los estilos viven en index.css (clases .pagina, .tarjeta, .boton...).
 import { useState, type FormEvent } from "react";
 import {
   SignedIn,
@@ -52,12 +53,12 @@ export default function App() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
+    <main className="pagina">
       {/* Cabecera: título a la izquierda y control de sesión a la derecha */}
-      <header className="mb-6 flex items-start justify-between gap-4">
+      <header className="cabecera">
         <div>
-          <h1 className="mb-1 text-2xl font-bold">Generador de preguntas</h1>
-          <p className="text-gray-600">
+          <h1 className="titulo">Generador de preguntas</h1>
+          <p className="subtitulo">
             Pega un texto y la IA creará preguntas de repaso.
           </p>
         </div>
@@ -65,9 +66,7 @@ export default function App() {
         {/* Solo se ve si NO hay sesión: botón que abre el inicio de sesión de Clerk */}
         <SignedOut>
           <SignInButton mode="modal">
-            <button className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
-              Iniciar sesión
-            </button>
+            <button className="boton">Iniciar sesión</button>
           </SignInButton>
         </SignedOut>
 
@@ -80,15 +79,13 @@ export default function App() {
       {/* Sin sesión no se muestra el formulario. Ojo: esto es solo comodidad;
           la protección real está en el backend, que rechaza con 401. */}
       <SignedOut>
-        <p className="rounded bg-gray-100 p-4 text-gray-700">
-          Inicia sesión para usar el generador de preguntas.
-        </p>
+        <p className="aviso">Inicia sesión para usar el generador de preguntas.</p>
       </SignedOut>
 
       <SignedIn>
-        <form onSubmit={enviar} className="space-y-4">
+        <form onSubmit={enviar} className="tarjeta formulario">
           <div>
-            <label htmlFor="texto" className="mb-1 block font-medium">
+            <label htmlFor="texto" className="etiqueta">
               Texto
             </label>
             <textarea
@@ -97,16 +94,16 @@ export default function App() {
               onChange={(e) => setTexto(e.target.value)}
               maxLength={MAX_TEXTO}
               rows={8}
-              className="w-full rounded border border-gray-300 p-2"
+              className="campo"
               placeholder="Pega aquí el texto que quieres repasar..."
             />
-            <p className="text-sm text-gray-500">
+            <p className="contador">
               {texto.length}/{MAX_TEXTO} caracteres
             </p>
           </div>
 
           <div>
-            <label htmlFor="num" className="mb-1 block font-medium">
+            <label htmlFor="num" className="etiqueta">
               Número de preguntas
             </label>
             <input
@@ -116,31 +113,27 @@ export default function App() {
               max={10}
               value={numPreguntas}
               onChange={(e) => setNumPreguntas(Number(e.target.value))}
-              className="w-24 rounded border border-gray-300 p-2"
+              className="campo campo-numero"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={cargando || !textoValido}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          <button type="submit" disabled={cargando || !textoValido} className="boton">
             {cargando ? "Generando..." : "Generar preguntas"}
           </button>
         </form>
 
         {/* Mensaje de error comprensible */}
         {error && (
-          <p role="alert" className="mt-6 rounded bg-red-100 p-3 text-red-800">
+          <p role="alert" className="error">
             {error}
           </p>
         )}
 
         {/* Resultado */}
         {preguntas.length > 0 && (
-          <section className="mt-6">
-            <h2 className="mb-2 text-lg font-semibold">Preguntas de repaso</h2>
-            <ol className="list-decimal space-y-2 pl-6">
+          <section className="tarjeta resultado">
+            <h2 className="resultado-titulo">Preguntas de repaso</h2>
+            <ol className="lista-preguntas">
               {preguntas.map((p, i) => (
                 <li key={i}>{p}</li>
               ))}
