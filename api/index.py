@@ -87,6 +87,7 @@ async def llamar_proveedor(texto: str, num_preguntas: int) -> list[str]:
         "meta-llama/llama-3.1-8b-instruct:free",
         "qwen/qwen-2.5-72b-instruct:free"
     ]
+<<<<<<< HEAD
 
     # Mantiene el orden y elimina duplicados
     modelos = list(dict.fromkeys(modelos_candidatos))
@@ -227,6 +228,69 @@ def usuario_autenticado(
     if credenciales is None:
         raise _no_autorizado("Debes iniciar sesión para usar este servicio")
     return verificar_token(credenciales.credentials)
+=======
+
+    # Mantiene el orden y elimina duplicados
+    modelos = list(dict.fromkeys(modelos_candidatos))
+
+    for modelo in modelos:
+        payload = {
+            "model": modelo,
+            "temperature": 0.4,
+            "max_tokens": 600,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres un asistente que crea preguntas de repaso en español. "
+                        'Responde SOLO con JSON válido con la forma {"preguntas": ["...", "..."]}, '
+                        "sin texto adicional."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Genera {num_preguntas} preguntas de repaso sobre este texto:\n\n{texto}",
+                },
+            ],
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=TIMEOUT_SEGUNDOS) as client:
+                respuesta = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json=payload,
+                )
+        except httpx.TimeoutException:
+            logger.warning("Timeout con el modelo %s, intentando el siguiente...", modelo)
+            continue
+        except httpx.HTTPError:
+            logger.warning("Error de red con el modelo %s, intentando el siguiente...", modelo)
+            continue
+
+        if respuesta.status_code == 200:
+            try:
+                contenido = respuesta.json()["choices"][0]["message"]["content"]
+                preguntas = _extraer_preguntas(contenido)
+                if preguntas:
+                    return preguntas
+            except Exception:
+                logger.warning("Respuesta no válida con el modelo %s, probando el siguiente...", modelo)
+                continue
+
+        # Si el modelo responde con 429 u otro error, se imprime en consola y prueba el siguiente
+        print(f"Modelo {modelo} falló con estado {respuesta.status_code}: {respuesta.text}")
+        logger.warning("Modelo %s devolvió %s", modelo, respuesta.status_code)
+
+    # Si ningún modelo disponible logró responder con éxito:
+    raise ProviderError(
+        "Los modelos gratuitos de la IA están temporalmente saturados. Por favor, reintenta en unos segundos.",
+        status_code=503
+    )
+>>>>>>> 5f8464e0e299394d21af3100f8b84c4b97cedeff
 
 
 @app.get("/api/health")
