@@ -244,3 +244,15 @@ async def generar(
     except ProviderError as e:
         raise HTTPException(status_code=e.status_code, detail=e.mensaje)
     return GenerarResponse(preguntas=preguntas)
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# Sirve los archivos estáticos y la SPA si existe la carpeta 'dist'
+if os.path.isdir("dist"):
+    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+    
+    @app.get("/{catchall:path}")
+    def serve_frontend(catchall: str):
+        return FileResponse("dist/index.html")

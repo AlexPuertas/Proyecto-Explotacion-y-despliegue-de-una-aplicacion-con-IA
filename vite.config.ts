@@ -12,6 +12,8 @@ export default defineConfig({
     // En desarrollo, todo lo que empiece por /api se reenvía al backend FastAPI.
     // Así el frontend usa rutas relativas ("/api/generar") igual que en producción
     // y no hace falta configurar CORS.
-       proxy: { "/api": "http://127.0.0.1:8000" },
+    proxy: {
+      "/api": "http://localhost:8000",
+    },
   },
 });
