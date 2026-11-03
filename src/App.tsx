@@ -14,6 +14,14 @@ import { generarPreguntas } from "./api";
 const MIN_TEXTO = 20;
 const MAX_TEXTO = 4000;
 
+// Fecha de hoy escrita como en un diario ("martes, 3 de noviembre de 2026")
+const HOY = new Date().toLocaleDateString("es-ES", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
 export default function App() {
   // getToken() pide a Clerk el token de sesión actual (se renueva solo)
   const { getToken } = useAuth();
@@ -53,11 +61,14 @@ export default function App() {
   }
 
   return (
-    <main className="pagina">
+    <div className="mesa">
+    <main className="hoja">
+      <p className="fecha">{HOY}</p>
+
       {/* Cabecera: título a la izquierda y control de sesión a la derecha */}
       <header className="cabecera">
         <div>
-          <h1 className="titulo">Generador de preguntas</h1>
+          <h1 className="titulo">Estud-IA</h1>
           <p className="subtitulo">
             Pega un texto y la IA creará preguntas de repaso.
           </p>
@@ -79,11 +90,11 @@ export default function App() {
       {/* Sin sesión no se muestra el formulario. Ojo: esto es solo comodidad;
           la protección real está en el backend, que rechaza con 401. */}
       <SignedOut>
-        <p className="aviso">Inicia sesión para usar el generador de preguntas.</p>
+        <p className="aviso">Inicia sesión para usar Estud-IA.</p>
       </SignedOut>
 
       <SignedIn>
-        <form onSubmit={enviar} className="tarjeta formulario">
+        <form onSubmit={enviar} className="formulario">
           <div>
             <label htmlFor="texto" className="etiqueta">
               Texto
@@ -94,7 +105,7 @@ export default function App() {
               onChange={(e) => setTexto(e.target.value)}
               maxLength={MAX_TEXTO}
               rows={8}
-              className="campo"
+              className="campo-texto"
               placeholder="Pega aquí el texto que quieres repasar..."
             />
             <p className="contador">
@@ -102,10 +113,8 @@ export default function App() {
             </p>
           </div>
 
-          <div>
-            <label htmlFor="num" className="etiqueta">
-              Número de preguntas
-            </label>
+          <label htmlFor="num" className="etiqueta">
+            Quiero
             <input
               id="num"
               type="number"
@@ -113,13 +122,16 @@ export default function App() {
               max={10}
               value={numPreguntas}
               onChange={(e) => setNumPreguntas(Number(e.target.value))}
-              className="campo campo-numero"
+              className="campo-numero"
             />
-          </div>
+            preguntas
+          </label>
 
-          <button type="submit" disabled={cargando || !textoValido} className="boton">
-            {cargando ? "Generando..." : "Generar preguntas"}
-          </button>
+          <div className="acciones">
+            <button type="submit" disabled={cargando || !textoValido} className="boton">
+              {cargando ? "Generando..." : "Generar preguntas"}
+            </button>
+          </div>
         </form>
 
         {/* Mensaje de error comprensible */}
@@ -131,7 +143,7 @@ export default function App() {
 
         {/* Resultado */}
         {preguntas.length > 0 && (
-          <section className="tarjeta resultado">
+          <section className="resultado">
             <h2 className="resultado-titulo">Preguntas de repaso</h2>
             <ol className="lista-preguntas">
               {preguntas.map((p, i) => (
@@ -142,5 +154,6 @@ export default function App() {
         )}
       </SignedIn>
     </main>
+    </div>
   );
 }
