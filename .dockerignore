@@ -1,0 +1,12 @@
+node_modules/
+dist/
+__pycache__/
+.env
+.env.*
+.git/
+.gitignore
+README.md
+Practica_UD1_Explotacion_Despliegue_IA.md
+api/tests/
+pytest.ini
+requirements-dev.txt
