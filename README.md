@@ -10,7 +10,7 @@ Miniaplicación de una sola pantalla: pegas un texto y una IA genera preguntas d
 - Autenticación con **Clerk** (inicio y cierre de sesión).
 - Backend que **valida el token de sesión** antes de consumir la IA.
 - Sin base de datos ni historial: cada petición es independiente.
-- Desplegable en **Vercel** y en **Docker**.
+- Desplegada en **Vercel** y en **Docker sobre AWS EC2**.
 
 ## Stack
 
@@ -21,7 +21,7 @@ Miniaplicación de una sola pantalla: pegas un texto y una IA genera preguntas d
 | Autenticación | Clerk (validación por JWKS) |
 | IA | Proveedor compatible con el formato OpenAI (`chat/completions`) |
 | Tests | pytest |
-| Despliegue | Vercel, Docker |
+| Despliegue | Vercel, Docker, AWS EC2 |
 
 ## Arquitectura
 
@@ -179,14 +179,67 @@ El frontend se sirve como SPA y el backend FastAPI desde `api/` (configuración 
 
 ### Docker
 
+La aplicación está dockerizada: el `Dockerfile` construye la imagen con frontend y backend.
+
 ```bash
 docker build -t generador-preguntas .
-docker run -d --env-file .env -p 80:8000 generador-preguntas
+docker run -d --name generador-preguntas --env-file .env -p 80:8000 generador-preguntas
 ```
 
 > Ajusta los puertos a los que exponga tu `Dockerfile`. Las variables `VITE_*` se incluyen al compilar la imagen, así que deben estar disponibles en el build.
 
-En un servidor (por ejemplo AWS EC2) abre en el grupo de seguridad el puerto que publiques y añade el origen público a `CLERK_AUTHORIZED_PARTIES`.
+Comprobación:
+
+```bash
+curl http://localhost/api/health
+# {"status": "ok"}
+```
+
+### AWS EC2
+
+Además de Vercel, la aplicación se ha desplegado con Docker en una instancia **AWS EC2**.
+
+1. **Crear la instancia** EC2 (Ubuntu o Amazon Linux) y descargar el par de claves `.pem`.
+2. **Grupo de seguridad:** abrir el puerto `22` (SSH, solo tu IP) y el puerto público de la app (`80`, o el que publiques).
+3. **Conectarse e instalar Docker:**
+
+   ```bash
+   ssh -i clave.pem ubuntu@<IP_PUBLICA>
+   sudo apt update && sudo apt install -y docker.io git
+   sudo usermod -aG docker $USER   # cierra y abre la sesión SSH después
+   ```
+
+4. **Clonar el repositorio y configurar variables:**
+
+   ```bash
+   git clone https://github.com/ExplotacionDeServicios/Proyecto-Explotacion-y-despliegue-de-una-aplicacion-con-IA.git
+   cd Proyecto-Explotacion-y-despliegue-de-una-aplicacion-con-IA
+   cp .env.example .env
+   nano .env   # AI_API_KEY, AI_BASE_URL, AI_MODEL, Clerk...
+   ```
+
+5. **Construir y arrancar el contenedor:**
+
+   ```bash
+   docker build -t generador-preguntas .
+   docker run -d --name generador-preguntas --restart unless-stopped \
+     --env-file .env -p 80:8000 generador-preguntas
+   ```
+
+6. **Clerk:** añadir el origen público (`http://<IP_PUBLICA>` o tu dominio) a `CLERK_AUTHORIZED_PARTIES` y reiniciar el contenedor.
+7. **Verificar:** abrir `http://<IP_PUBLICA>/api/health` y comprobar que responde `{"status": "ok"}`.
+
+Para actualizar tras un cambio:
+
+```bash
+git pull
+docker build -t generador-preguntas .
+docker rm -f generador-preguntas
+docker run -d --name generador-preguntas --restart unless-stopped \
+  --env-file .env -p 80:8000 generador-preguntas
+```
+
+> La clave `AI_API_KEY` solo vive en el `.env` del servidor. No la subas a Git ni la incluyas en la imagen.
 
 ## Decisiones de diseño
 
