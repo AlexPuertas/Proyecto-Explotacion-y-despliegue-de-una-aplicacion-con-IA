@@ -1,0 +1,199 @@
+/* Fuentes de letra a mano (los @import van siempre al principio del archivo) */
+@import url("https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Patrick+Hand&display=swap");
+
+/* Tailwind CSS v4: activa todas sus utilidades. */
+@import "tailwindcss";
+
+/* Paleta y tipografías: escritorio, hoja de libreta, bolígrafo azul y rojo */
+@theme {
+  --font-titulo: "Gochi Hand", "Comic Sans MS", cursive;
+  --font-cuerpo: "Patrick Hand", "Comic Sans MS", cursive;
+
+  --color-mesa: #d6dde3;
+  --color-papel: #fffffd;
+  --color-renglon: #bfd9ee;
+  --color-margen: #e0626a;
+  --color-tinta: #1b2a41;
+  --color-tinta-suave: #5b6b82;
+}
+
+@layer base {
+  html {
+    @apply bg-mesa text-tinta antialiased;
+  }
+
+  body {
+    @apply min-h-screen font-cuerpo text-xl;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-margen;
+  }
+}
+
+@layer components {
+  /* Todo el texto se apoya en renglones de 2rem: usa múltiplos de --linea */
+  .mesa {
+    @apply px-3 py-6 sm:px-6 sm:py-10;
+  }
+
+  /* La hoja: renglones azules, margen rojo y tres agujeros a la izquierda */
+  .hoja {
+    --linea: 2rem;
+    --radio-mano: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    --agujero: radial-gradient(
+      circle,
+      var(--color-mesa) 0 0.55rem,
+      #8896a6 0.56rem 0.65rem,
+      transparent 0.66rem
+    );
+
+    position: relative;
+    @apply mx-auto max-w-3xl bg-papel shadow-xl;
+    padding: var(--linea) 1rem calc(var(--linea) * 2) 3.75rem;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--linea) - 1px),
+      var(--color-renglon) calc(var(--linea) - 1px),
+      var(--color-renglon) var(--linea)
+    );
+    line-height: var(--linea);
+  }
+
+  .hoja::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 3rem;
+    width: 2px;
+    background: var(--color-margen);
+    opacity: 0.8;
+  }
+
+  .hoja::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0.5rem;
+    width: 1.5rem;
+    pointer-events: none;
+    background:
+      var(--agujero) 50% 10% / 1.5rem 1.5rem no-repeat,
+      var(--agujero) 50% 50% / 1.5rem 1.5rem no-repeat,
+      var(--agujero) 50% 90% / 1.5rem 1.5rem no-repeat;
+  }
+
+  @media (min-width: 40rem) {
+    .hoja {
+      padding-left: 5.5rem;
+      padding-right: 2.5rem;
+    }
+    .hoja::before {
+      left: 4.5rem;
+    }
+    .hoja::after {
+      left: 1.25rem;
+    }
+  }
+
+  .fecha {
+    @apply text-right text-base text-tinta-suave first-letter:uppercase;
+  }
+
+  .cabecera {
+    @apply flex items-start justify-between gap-4;
+    margin-bottom: var(--linea);
+  }
+
+  .titulo {
+    @apply font-titulo font-normal;
+    font-size: 1.75rem;
+    line-height: var(--linea);
+    text-decoration: underline wavy var(--color-margen) 1.5px;
+    text-underline-offset: 5px;
+  }
+
+  @media (min-width: 40rem) {
+    .titulo {
+      font-size: 2.5rem;
+      line-height: calc(var(--linea) * 2);
+    }
+  }
+
+  .subtitulo {
+    @apply text-tinta-suave;
+  }
+
+  .aviso {
+    @apply text-tinta-suave;
+  }
+
+  .formulario {
+    @apply block;
+  }
+
+  .etiqueta {
+    @apply block;
+  }
+
+  .campo-texto {
+    @apply block w-full resize-none overflow-y-auto bg-transparent p-0 text-tinta
+      placeholder:text-tinta-suave/60 focus:outline-none;
+    height: calc(var(--linea) * 8);
+    line-height: var(--linea);
+  }
+
+  .campo-numero {
+    @apply mx-1 w-14 bg-transparent p-0 text-center text-tinta focus:outline-none;
+    height: var(--linea);
+    line-height: var(--linea);
+    border-bottom: 2px dashed var(--color-tinta);
+  }
+
+  .contador {
+    @apply text-right text-sm text-tinta-suave;
+    line-height: var(--linea);
+  }
+
+  .acciones {
+    @apply flex items-center;
+    height: calc(var(--linea) * 2);
+  }
+
+  /* Botón con borde "dibujado a mano" (el box-shadow no ocupa espacio) */
+  .boton {
+    @apply inline-flex cursor-pointer items-center justify-center bg-papel px-4 font-titulo text-lg text-tinta
+      transition-colors hover:bg-tinta hover:text-papel
+      disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-papel disabled:hover:text-tinta;
+    height: 2.5rem;
+    line-height: 1;
+    border-radius: var(--radio-mano);
+    box-shadow: 0 0 0 2px var(--color-tinta);
+  }
+
+  /* Error escrito con bolígrafo rojo */
+  .error {
+    @apply px-3 text-margen;
+    margin-top: var(--linea);
+    border-radius: var(--radio-mano);
+    box-shadow: 0 0 0 2px var(--color-margen);
+  }
+
+  .resultado {
+    margin-top: var(--linea);
+  }
+
+  .resultado-titulo {
+    @apply font-titulo text-3xl font-normal;
+    line-height: var(--linea);
+    text-decoration: underline wavy var(--color-margen) 1.5px;
+    text-underline-offset: 5px;
+  }
+
+  .lista-preguntas {
+    @apply list-decimal pl-8 marker:font-titulo marker:text-margen;
+  }
+
+  .lista-preguntas li {
+    margin-bottom: var(--linea);
+  }
+}
